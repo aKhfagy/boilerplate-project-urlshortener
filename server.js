@@ -132,7 +132,7 @@ const testUrl = (url, done) => {
     }
 };
 
-app.post('/api/shorturl/new', (req, res) => {
+app.post('/api/shorturl', (req, res) => {
     testUrl(req.body.url, (err, address) => {
         if(err)
             return res.json(err);
