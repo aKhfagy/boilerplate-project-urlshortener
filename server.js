@@ -46,58 +46,77 @@ app.get('/api/hello', function(req, res) {
 
 const isConnected = () => {
     // used for debugging
-    return !!client && 
-            !!client.topology && 
-            client.topology.isConnected();
+    return mongoose &&
+        mongoose.connection && 
+        mongoose.connection.readyState;
 }
 
 const findOneByURL = async (url, done) => {
-    let flag = true;
-    await ShortUrl.findOne(
-        {original_url: url}, 
-        (err, data) => {
-        if(err)
-            return done(err, null);
-        flag = false;
-        done(null, data);
-    });
-    if(flag) done(null, null);
+    if(isConnected()) {
+        let flag = true;
+        await ShortUrl.findOne(
+            {original_url: url}, 
+            (err, data) => {
+            if(err)
+                return done(err, null);
+            flag = false;
+            done(null, data);
+        }).catch(
+            () => console.log(
+                        'failed in read db'));
+        if(flag) done(null, null);
+    }
+    else {
+        done({error: 'Database is disconnected'}, null);
+    }
 };
 
 const findOneByShort = async (url, done) => {
-    let flag = true;
-     await ShortUrl.findOne(
-         {short_url: url}, 
-         (err, data) => {
-        if(err)
-            return done(err, null);
-        flag = false;
-        done(null, data);
-    });
-    if(flag) done(null, null);
+    if(isConnected()) {
+        let flag = true;
+        await ShortUrl.findOne(
+            {short_url: url}, 
+            (err, data) => {
+            if(err)
+                return done(err, null);
+            flag = false;
+            done(null, data);
+        }).catch(
+            () => console.log(
+                        'failed in read db'));
+        if(flag) done(null, null);
+    }
+    else {
+        done({error: 'Database is disconnected'}, null);
+    }
 };
 
 const createAndSave = async (url, done) => {
-    await ShortUrl.countDocuments((err, data) => {
-        if(err)
-            return done(err, null);
-        let index = data || 0;
-        let short = new ShortUrl({
-                original_url: url, 
-                short_url: index
-            });
-        short.save((err, data) => {
+    if(isConnected()) {
+        await ShortUrl.countDocuments((err, data) => {
             if(err)
                 return done(err, null);
-            let item = {
-                original_url: data.original_url,
-                short_url: data.short_url
-            };
-            done(null, item);
-        });
-    }).catch(
-        () => console.log(
-                    'failed in create and save'));
+            let index = data || 0;
+            let short = new ShortUrl({
+                    original_url: url, 
+                    short_url: index
+                });
+            short.save((err, data) => {
+                if(err)
+                    return done(err, null);
+                let item = {
+                    original_url: data.original_url,
+                    short_url: data.short_url
+                };
+                done(null, item);
+            });
+        }).catch(
+            () => console.log(
+                        'failed in create and save'));
+    }
+    else {
+        done({error: 'Database is disconnected'}, null);
+    }
 };
 
 const validateUrl = (value) => {
@@ -106,12 +125,7 @@ const validateUrl = (value) => {
 
 const testUrl = (url, done) => {
     if(validateUrl(url)) {
-        dns.lookup(url.replace(/^https?:\/\//i, ''), 
-                    (err, address, family) => {
-                        if(err)
-                            return done(err, null);
-                        done(null, address);
-                    });
+        done(null, url);
     }
     else {
         done({error: 'invalid url'}, url);
