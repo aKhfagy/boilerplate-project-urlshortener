@@ -11,7 +11,10 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 const uri = process.env['MONGO_KEY'];
-const client = new MongoClient(uri);
+const client = new MongoClient(
+                uri, { 
+                    useUnifiedTopology: true 
+                });
 
 client.connect()
     .then(
@@ -50,6 +53,7 @@ const isConnected = () => {
 
 const findOneByURL = (url, done) => {
     let flag = true;
+    console.log('starting search');
     ShortUrl.findOne({original_url: url}, (err, data) => {
         console.log(err);
         if(err)
@@ -57,6 +61,7 @@ const findOneByURL = (url, done) => {
         flag = false;
         done(null, data);
     });
+    console.log('finished search');
     if(flag) done(null, null);
 };
 
@@ -72,7 +77,7 @@ const findOneByShort = (url, done) => {
 };
 
 const createAndSave = (url, done) => {
-    ShortUrl.count((err, data) => {
+    ShortUrl.find().then((err, data) => {
         if(err)
             return done(err, null);
         console.log(data);
@@ -89,7 +94,8 @@ const createAndSave = (url, done) => {
             };
             done(null, item);
         });
-    });
+    }).catch(
+        err => console.log('failed in create and save'));
 };
 
 const validateUrl = (value) => {
@@ -131,6 +137,7 @@ app.post('/api/shorturl/new', (req, res) => {
                 createAndSave(req.body.url, (err, data) => {
                     if(err)
                         return res.json(err);
+                    console.log('here');
                     res.json(data);
                     console.log('finished creating');
                 });
