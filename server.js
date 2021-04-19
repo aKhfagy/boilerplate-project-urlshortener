@@ -41,27 +41,38 @@ app.get('/api/hello', function(req, res) {
   res.json({ greeting: 'hello API' });
 });
 
+const isConnected = () => {
+    // used for debugging
+    return !!client && 
+            !!client.topology && 
+            client.topology.isConnected();
+}
+
 const findOneByURL = (url, done) => {
+    let flag = true;
     ShortUrl.findOne({original_url: url}, (err, data) => {
         console.log(err);
         if(err)
             return done(err, null);
+        flag = false;
         done(null, data);
     });
-    done(null, null);
+    if(flag) done(null, null);
 };
 
 const findOneByShort = (url, done) => {
+    let flag = true;
     ShortUrl.findOne({short_url: url}, (err, data) => {
         if(err)
             return done(err, null);
+        flag = false;
         done(null, data);
     });
-    done(null, null);
+    if(flag) done(null, null);
 };
 
 const createAndSave = (url, done) => {
-    let count = ShortUrl.count((err, data) => {
+    ShortUrl.count((err, data) => {
         if(err)
             return done(err, null);
         console.log(data);
