@@ -11,16 +11,16 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 const uri = process.env['MONGO_KEY'];
-const client = new MongoClient(
-                uri, { 
-                    useUnifiedTopology: true 
-                });
-
-client.connect()
-    .then(
-        () => console.log('success connecting to database'))
-    .catch(
-        (err) => console.log(err + '\n' + "fialed to connect to database"));
+mongoose.connect(uri, { 
+                    useUnifiedTopology: true,
+                    useNewUrlParser: true
+                })
+                .then(() => 
+                console.log('success connecting database'))
+                .catch(err => 
+                console.log(
+                    err + '\n' +
+                     "fialed to connect to database"));
 
 const regexURL = /^(?:(?:(?:https?|ftp):)?\/\/)(?:\S+(?::\S*)?@)?(?:(?!(?:10|127)(?:\.\d{1,3}){3})(?!(?:169\.254|192\.168)(?:\.\d{1,3}){2})(?!172\.(?:1[6-9]|2\d|3[0-1])(?:\.\d{1,3}){2})(?:[1-9]\d?|1\d\d|2[01]\d|22[0-3])(?:\.(?:1?\d{1,2}|2[0-4]\d|25[0-5])){2}(?:\.(?:[1-9]\d?|1\d\d|2[0-4]\d|25[0-4]))|(?:(?:[a-z\u00a1-\uffff0-9]-*)*[a-z\u00a1-\uffff0-9]+)(?:\.(?:[a-z\u00a1-\uffff0-9]-*)*[a-z\u00a1-\uffff0-9]+)*(?:\.(?:[a-z\u00a1-\uffff]{2,})))(?::\d{2,5})?(?:[/?#]\S*)?$/i;
 
@@ -51,23 +51,11 @@ const isConnected = () => {
             client.topology.isConnected();
 }
 
-const findOneByURL = (url, done) => {
+const findOneByURL = async (url, done) => {
     let flag = true;
-    console.log('starting search');
-    ShortUrl.findOne({original_url: url}, (err, data) => {
-        console.log(err);
-        if(err)
-            return done(err, null);
-        flag = false;
-        done(null, data);
-    });
-    console.log('finished search');
-    if(flag) done(null, null);
-};
-
-const findOneByShort = (url, done) => {
-    let flag = true;
-    ShortUrl.findOne({short_url: url}, (err, data) => {
+    await ShortUrl.findOne(
+        {original_url: url}, 
+        (err, data) => {
         if(err)
             return done(err, null);
         flag = false;
@@ -76,14 +64,27 @@ const findOneByShort = (url, done) => {
     if(flag) done(null, null);
 };
 
-const createAndSave = (url, done) => {
-    ShortUrl.find().then((err, data) => {
+const findOneByShort = async (url, done) => {
+    let flag = true;
+     await ShortUrl.findOne(
+         {short_url: url}, 
+         (err, data) => {
         if(err)
             return done(err, null);
-        console.log(data);
+        flag = false;
+        done(null, data);
+    });
+    if(flag) done(null, null);
+};
+
+const createAndSave = async (url, done) => {
+    await ShortUrl.countDocuments((err, data) => {
+        if(err)
+            return done(err, null);
+        let index = data || 0;
         let short = new ShortUrl({
                 original_url: url, 
-                short_url: data
+                short_url: index
             });
         short.save((err, data) => {
             if(err)
@@ -95,7 +96,8 @@ const createAndSave = (url, done) => {
             done(null, item);
         });
     }).catch(
-        err => console.log('failed in create and save'));
+        () => console.log(
+                    'failed in create and save'));
 };
 
 const validateUrl = (value) => {
@@ -120,12 +122,10 @@ app.post('/api/shorturl/new', (req, res) => {
     testUrl(req.body.url, (err, address) => {
         if(err)
             return res.json(err);
-        console.log('test succeeded');
         findOneByURL(req.body.url, (err, data) => {
             if(err)
                 return res.json(err);
             if(data) {
-                console.log('URL Already exists')
                 let item = {
                     original_url: data.original_url,
                     short_url: data.short_url
@@ -133,13 +133,10 @@ app.post('/api/shorturl/new', (req, res) => {
                 res.json(item);
             }
             else {
-                console.log('to create new item')
                 createAndSave(req.body.url, (err, data) => {
                     if(err)
                         return res.json(err);
-                    console.log('here');
                     res.json(data);
-                    console.log('finished creating');
                 });
             }
         });
@@ -151,7 +148,7 @@ app.get('/api/shorturl/:shortUrl', (req, res) => {
         if(err)
             res.json(err);
         if(data) {
-            console.log('redirecting');
+            console.log(data.original_url);
             res.redirect(data.original_url);
         }
         else {
